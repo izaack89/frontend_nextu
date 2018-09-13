@@ -1,0 +1,331 @@
+<!doctype html>
+<html class="no-js" lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Agenda</title>
+        <link rel="stylesheet" href="css/foundation.min.css">
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.css">
+        <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.9.0/fullcalendar.min.css">
+        <link rel="stylesheet" href="css/main.css">
+    </head>
+    <body>
+
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <h3>Agenda</h3>
+            </div>
+            <div class="top-bar-right">
+                <ul class="menu">
+                    <li><a href="#"  id="nombre_usuario"></a></li>
+                    <li><a href="../server/logout.php" id="logout">Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="expanded-row main-container">
+            <div class="left-cont">
+                <div class="calendario"></div>
+            </div>
+            <div class="right-cont">
+                <div class="add-btn">
+                    <h5>Nuevo Evento</h5>
+                    <form>
+                        <div class="row">
+                            <div class="small-12 columns">
+                                <label>Título del evento
+                                    <input type="text" id="titulo">
+                                </label>
+                            </div>
+                            <div class="small-8 columns">
+                                <label>Fecha inicio
+                                    <input type="text" id="start_date">
+                                </label>
+                            </div>
+                            <fieldset class="large-4 columns" id="dia-set">
+                                <input id="allDay" type="checkbox"><label for="allDay">Día entero</label>
+                            </fieldset>
+                            <div class="small-8 columns">
+                                <label>Fecha fin
+                                    <input type="text" id="end_date">
+                                </label>
+                            </div>
+                            <div class="small-6 columns">
+                                <label>Hora de inicio
+                                    <input type="text" class="timepicker" id="start_hour">
+                                </label>
+                            </div>
+                            <div class="small-6 columns">
+                                <label>Hora fin
+                                    <input type="text" class="timepicker" id="end_hour">
+                                </label>
+                            </div>
+                            <div class="small-12 columns btn-cont-enviar">
+                                <button type="submit" class="success button">Añadir</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="delete-btn">
+                    <h6>Arrastra aquí un evento que desees eliminar</h6>
+                    <img src="img/trash.png" alt="Eliminar">
+                </div>
+            </div>
+        </div>
+
+
+        <script src="js/vendor/jquery.js"></script>
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+        <script src="js/vendor/what-input.js"></script>
+        <script src="js/vendor/foundation.min.js"></script>
+        <script src="http://momentjs.com/downloads/moment.min.js"></script>
+        <script src="js/vendor/fullcalendar.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.js"></script>
+        <script>
+
+
+
+            class EventsManager {
+                constructor() {
+                    this.obtenerDataInicial()
+                }
+
+                obtenerDataInicial() {
+                    let url = '../server/getEvents.php';
+                    let main_class=this;
+                    $.ajax({
+                        url: url,
+                        type: "POST",
+                        async: true,
+                        cache: false,
+                        dataType: "json",
+                        success: function(data) {
+                            if (data.msg == "OK") {
+                                document.getElementById("nombre_usuario").innerHTML=data.usuario_nombre;
+                                main_class.poblarCalendario(data.eventos);
+                            } else {
+                                window.location.href = 'index.html';
+                            }
+                        },
+                        error: function (xhr,status,errorr){
+                            console.log(xhr);
+                            console.log(status);
+                            console.log(errorr);
+                            alert("error en la comunicación con el servidor");
+                        }
+                    })
+
+                }
+
+                poblarCalendario(eventos) {
+                    let main_class=this;
+                    $('.calendario').fullCalendar({
+                        header: {
+                            left: 'prev,next today',
+                            center: 'title',
+                            right: 'month,agendaWeek,basicDay'
+                        },
+                        defaultDate: '2018-01-01',
+                        navLinks: true,
+                        editable: true,
+                        eventLimit: true,
+                        droppable: true,
+                        dragRevertDuration: 0,
+                        timeFormat: 'H:mm',
+                        eventDrop: (event) => {
+                            main_class.actualizarEvento(event)
+                        },
+                        events: eventos,
+                        eventDragStart: (event, jsEvent) => {
+                            $('.delete-btn').find('img').attr('src', "img/trash-open.png");
+                            $('.delete-btn').css('background-color', '#a70f19')
+                        },
+                        eventDragStop: (event, jsEvent) => {
+                            var trashEl = $('.delete-btn');
+                            var ofs = trashEl.offset();
+                            var x1 = ofs.left;
+                            var x2 = ofs.left + trashEl.outerWidth(true);
+                            var y1 = ofs.top;
+                            var y2 = ofs.top + trashEl.outerHeight(true);
+                            if (jsEvent.pageX >= x1 && jsEvent.pageX <= x2 &&
+                                    jsEvent.pageY >= y1 && jsEvent.pageY <= y2) {
+                                main_class.eliminarEvento(event, jsEvent)
+                                $('.calendario').fullCalendar('removeEvents', event.id);
+                            }
+
+                        }
+                    })
+                }
+
+                anadirEvento() {
+                    let     titulo = $('#titulo').val(),
+                            start_date= $('#start_date').val(),
+                            end_date= $('#end_date').val(),
+                            start_hour=$('#start_hour').val(),
+                            end_hour = $('#end_hour').val(),
+                            allDay=document.getElementById('allDay').checked;
+                    let new_date= {
+                        titulo: titulo, 
+                        start_date: start_date, 
+                        end_date: end_date,
+                        start_hour: start_hour, 
+                        end_hour: end_hour,
+                        allDay: allDay,
+                    };
+                    $.ajax({
+                        url: '../server/new_event.php',
+                        dataType: "json",
+                        cache: false,
+                        data: {new_date:new_date},
+                        type: 'POST',
+                        success: (data) => {
+                            if (data.msg == "OK") {
+                                document.getElementById('allDay').checked=false;
+                                alert('Se ha añadido el evento exitosamente')
+                                if (document.getElementById('allDay').checked) {
+                                    $('.calendario').fullCalendar('renderEvent', {
+                                        title: $('#titulo').val(),
+                                        start: $('#start_date').val(),
+                                        allDay: true
+                                    },true)
+                                } else {
+                                    $('.calendario').fullCalendar('renderEvent', {
+                                        title: $('#titulo').val(),
+                                        start: $('#start_date').val() + " " + $('#start_hour').val(),
+                                        allDay: false,
+                                        end: $('#end_date').val() + " " + $('#end_hour').val()
+                                    },true);
+                                }
+
+                                
+                                $('#titulo').val("");
+                                $('#start_date').val("");
+                                $('#end_date').val("");
+                                $('#start_hour').val("");
+                                $('#end_hour').val("");
+                                $('.timepicker, #end_date').removeAttr("disabled");
+
+                            } else {
+                                alert(data.msg)
+                            }
+                        },
+                        error: function () {
+                            alert("error en la comunicación con el servidor");
+                        }
+                    })
+
+                }
+
+                eliminarEvento(event, jsEvent) {
+
+                    
+                    let date_eliminar= {
+                        id: event.id
+                    };
+                    $.ajax({
+                        url: '../server/delete_event.php',
+                        dataType: "json",
+                        cache: false,
+                        data: {date_eliminar: date_eliminar},
+                        type: 'POST',
+                        success: (data) => {
+                            if (data.msg == "OK") {
+                                alert('Se ha eliminado el evento exitosamente')
+                            } else {
+                                alert(data.msg)
+                            }
+                        },
+                        error: function () {
+                            alert("error en la comunicación con el servidor");
+                        }
+                    })
+                    $('.delete-btn').find('img').attr('src', "img/trash.png");
+                    $('.delete-btn').css('background-color', '#8B0913')
+                }
+
+                actualizarEvento(evento) {
+                    let id = evento.id,
+                            start = moment(evento.start).format('YYYY-MM-DD HH:mm:ss'),
+                            end = moment(evento.end).format('YYYY-MM-DD HH:mm:ss'),
+                            start_date,
+                            end_date,
+                            start_hour,
+                            end_hour;
+                    start_date = start.substr(0, 10);
+                    end_date = end.substr(0, 10);
+                    start_hour = start.substr(11, 8);
+                    end_hour = end.substr(11, 8);
+
+                    let new_date= {
+                        id: id, 
+                        start_date: start_date, 
+                        end_date: end_date,
+                        start_hour: start_hour, 
+                        end_hour: end_hour
+                    };
+                    $.ajax({
+                        url: '../server/update_event.php',
+                        dataType: "json",
+                        cache: false,
+                        data: {new_date:new_date},
+                        type: 'POST',
+                        success: (data) => {
+                            if (data.msg == "OK") {
+                                alert('Se ha actualizado el evento exitosamente');
+                            } else {
+                                alert(data.msg)
+                            }
+                        },
+                        error: function (XMLHttpRequest, textStatus, errorThrown) {
+                            console.log(XMLHttpRequest);
+                            console.log(textStatus);
+                            console.log(errorThrown);
+                        }
+                    })
+                }
+
+            }
+
+
+            $(function () {
+                initForm();
+                var e = new EventsManager();
+                $('form').submit(function (event) {
+                    event.preventDefault()
+                    e.anadirEvento()
+                })
+            });
+
+
+
+            function initForm() {
+                $('#start_date, #titulo, #end_date').val('');
+                $('#start_date, #end_date').datepicker({
+                    dateFormat: "yy-mm-dd"
+                });
+                $('.timepicker').timepicker({
+                    timeFormat: 'HH:mm',
+                    interval: 30,
+                    minTime: '5',
+                    maxTime: '23:30',
+                    defaultTime: '7',
+                    startTime: '5:00',
+                    dynamic: false,
+                    dropdown: true,
+                    scrollbar: true
+                });
+                $('#allDay').on('change', function () {
+                    if (this.checked) {
+                        $('.timepicker, #end_date').attr("disabled", "disabled")
+                    } else {
+                        $('.timepicker, #end_date').removeAttr("disabled")
+                    }
+                })
+
+            }
+
+        </script>
+    </body>
+</html>
